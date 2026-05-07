@@ -53,7 +53,7 @@ npm run test:ui     # UI interativa Vitest
 - Clientes em `src/lib/supabase/`
 - Server: `src/lib/supabase/server.ts`
 - Browser: `src/lib/supabase/client.ts`
-- Middleware: `src/lib/supabase/middleware.ts`
+- Proxy (Auth): `src/proxy.ts`
 - Auth state: `src/contexts/AuthContext.tsx`
 
 ### RLS (Row Level Security)
