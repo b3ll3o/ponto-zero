@@ -1,8 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { isSupabaseConfigured } from './config';
 
 export async function createClient() {
   const cookieStore = await cookies();
+
+  // Guard: skip Supabase init if credentials are placeholder/missing.
+  // Allows builds to succeed before real env vars are set.
+  if (!isSupabaseConfigured()) {
+    return {
+      auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+    } as ReturnType<typeof createServerClient>;
+  }
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

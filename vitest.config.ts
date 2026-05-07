@@ -9,5 +9,24 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     include: ['**/*.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      thresholds: {
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
+      },
+      exclude: [
+        'node_modules/**',
+        'e2e/**',
+        '**/*.config.*',
+        '**/*.d.ts',
+        'vitest.setup.ts',
+        '.next/**',
+      ],
+    },
   },
 })
