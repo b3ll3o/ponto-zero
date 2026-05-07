@@ -127,4 +127,4 @@ O projeto pode ser deployado na Vercel ou qualquer plataforma que suporte Next.j
 
 ```bash
 npm run build
-```
+```，健康检查
