@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ponto Zero - Controle de Jornada",
   description: "Aplicativo para controle de jornada de trabalho",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

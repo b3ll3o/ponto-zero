@@ -393,7 +393,7 @@ export default function Home() {
               <a href="#" className="hover:text-zinc-900 dark:hover:text-zinc-100">Termos</a>
             </div>
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              © 2024 Ponto Zero. Todos os direitos reservados.
+              © 2026 Ponto Zero. Todos os direitos reservados.
             </p>
           </div>
         </div>

@@ -11,6 +11,7 @@ import React from 'react';
 const mockSignInWithPassword = vi.fn();
 const mockSignUp = vi.fn();
 const mockGetSession = vi.fn();
+const mockResend = vi.fn();
 const mockSubscribe = vi.fn(() => ({
   data: { subscription: { unsubscribe: () => {} } },
 }));
@@ -19,6 +20,7 @@ const mockSupabaseClient = {
   auth: {
     signInWithPassword: mockSignInWithPassword,
     signUp: mockSignUp,
+    resend: mockResend,
     getSession: mockGetSession,
     onAuthStateChange: mockSubscribe,
   },
@@ -117,7 +119,31 @@ describe('Login page', () => {
     expect(mockRefresh).toHaveBeenCalled();
   });
 
-  it('shows alert on successful sign up', async () => {
+  it('sign up button is disabled when form is empty', () => {
+    render(<LoginPage />);
+    expect(screen.getByRole('button', { name: /criar conta/i })).toBeDisabled();
+  });
+
+  it('does not call signUp when clicking sign up button with empty form', () => {
+    render(<LoginPage />);
+    // Button is disabled, but let's double-click to be extra safe
+    const signUpButton = screen.getByRole('button', { name: /criar conta/i });
+    fireEvent.click(signUpButton);
+    expect(mockSignUp).not.toHaveBeenCalled();
+  });
+
+  it('enables sign up button when email and password are filled', () => {
+    render(<LoginPage />);
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/senha/i), {
+      target: { value: 'newpassword123' },
+    });
+    expect(screen.getByRole('button', { name: /criar conta/i })).toBeEnabled();
+  });
+
+  it('shows success message on successful sign up', async () => {
     mockSignUp.mockResolvedValueOnce({
       data: { session: null, user: null },
       error: null,
@@ -131,19 +157,70 @@ describe('Login page', () => {
       target: { value: 'newpassword123' },
     });
 
-    const originalAlert = window.alert;
-    const alertMock = vi.fn();
-    window.alert = alertMock;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
+    });
+
+    expect(screen.getByText(/conta criada! verifique seu e-mail/i)).toBeInTheDocument();
+  });
+
+  it('shows resend confirmation button after successful sign up', async () => {
+    mockSignUp.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: null,
+    });
+
+    render(<LoginPage />);
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/senha/i), {
+      target: { value: 'newpassword123' },
+    });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
     });
 
-    expect(alertMock).toHaveBeenCalledWith(
-      'Conta criada! Verifique seu e-mail para confirmar o cadastro.'
-    );
+    expect(screen.getByRole('button', { name: /reenviar e-mail/i })).toBeInTheDocument();
+  });
 
-    window.alert = originalAlert;
+  it('resend confirmation button calls resend API', async () => {
+    mockSignUp.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: null,
+    });
+    mockResend.mockResolvedValueOnce({ error: null });
+
+    render(<LoginPage />);
+    fireEvent.change(screen.getByLabelText(/e-mail/i), {
+      target: { value: 'new@example.com' },
+    });
+    fireEvent.change(screen.getByLabelText(/senha/i), {
+      target: { value: 'newpassword123' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /criar conta/i }));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /reenviar e-mail/i }));
+    });
+
+    expect(mockResend).toHaveBeenCalledWith({ type: 'signup', email: 'new@example.com' });
+  });
+
+  it('redirects to dashboard when user is already confirmed on mount', async () => {
+    mockGetSession.mockResolvedValueOnce({
+      data: { session: { user: { id: 'user-1' } }, error: null },
+    });
+
+    render(<LoginPage />);
+    // Wait for the useEffect to run
+    await act(async () => {});
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard');
   });
 
   it('renders back to home link pointing to /', () => {
