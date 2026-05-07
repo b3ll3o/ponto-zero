@@ -13,6 +13,8 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const isFormValid = email.length > 0 && password.length > 0;
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -114,7 +116,7 @@ export default function LoginPage() {
             <button
               type="submit"
               onClick={handleLogin}
-              disabled={isLoading}
+              disabled={isLoading || !isFormValid}
               className="w-full flex justify-center rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isLoading ? 'Entrando...' : 'Entrar'}

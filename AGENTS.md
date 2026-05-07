@@ -17,9 +17,36 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### Testes
 
+**Regras obrigatórias (PON-13):**
+
+- Cobertura mínima: **80%** para statements, branches, functions e lines
+- Deve haver: testes unitários, testes de integração e testes e2e
+- **Todos os testes devem sempre passar** (CI bloqueia merge se falhar)
+- Testes devem ser escritos pensando em **performance**
+
+**Estrutura:**
 - Unit tests: Vitest em `*.test.ts` / `*.test.tsx`
+- Integration tests: Vitest (mesma estrutura, testam fluxo completo)
 - E2E tests: Playwright em `e2e/*.spec.ts`
-- Execute testes: `npm run test` / `npm run test:e2e`
+
+**Execução:**
+```bash
+npm run test        # Unit + Integration (com coverage)
+npm run test:run    # Unit + Integration (sem coverage, CI)
+npm run test:e2e    # E2E com Playwright
+npm run test:ui     # UI interativa Vitest
+```
+
+**Performance:**
+- Páginas devem carregar em < 5s
+- Navegações em < 1s
+- Limite de 20 requisições externas por página
+- Medir e documentar thresholds nos testes e2e
+
+**Coverage:**
+- Configurado em `vitest.config.ts` com thresholds em 80%
+- Relatórios em `coverage/` (text, html, lcov)
+- Arquivos de node_modules, config e e2e excluídos
 
 ### Supabase
 
