@@ -16,15 +16,21 @@ test.describe('Home Page E2E', () => {
 
   test('displays branding with logo', async ({ page }) => {
     await page.goto('/')
-    await expect(page.locator('text=P0')).toBeVisible()
-    await expect(page.locator('text=Controle de Jornada de Trabalho')).toBeVisible()
+    // Logo badge with P0 text
+    await expect(page.locator('div.rounded-full >> text=P0').first()).toBeVisible()
+    // Branding name in header
+    await expect(page.locator('header >> text=Ponto Zero')).toBeVisible()
+    // Hero heading
+    await expect(page.locator('h1')).toContainText('Ponto Zero')
+    // Hero tagline
+    await expect(page.locator('h1 >> text=Controle de Jornada')).toBeVisible()
   })
 
   test('displays feature cards', async ({ page }) => {
     await page.goto('/')
-    await expect(page.locator('text=Registre seus horários')).toBeVisible()
-    await expect(page.locator('text=Acompanhe horas extras')).toBeVisible()
-    await expect(page.locator('text=Relatórios detalhados')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Registro Simples' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Horas Extras' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Relatórios Mensais' })).toBeVisible()
   })
 
   test('login button navigates to login page', async ({ page }) => {

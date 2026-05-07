@@ -41,14 +41,10 @@ test.describe('Login Page E2E', () => {
   })
 
   test('shows error on invalid login attempt', async ({ page }) => {
-    // Mock Supabase auth error response since we use placeholder credentials in dev
-    await page.route('**/auth/v1/token*', async (route) => {
-      await route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'invalid_grant', message: 'E-mail ou senha incorretos' }),
-      })
-    })
+    // When Supabase uses placeholder credentials, the mock client is active.
+    // With NEXT_PUBLIC_E2E_TESTING=true, the mock returns an auth error for
+    // signInWithPassword, matching what the real Supabase client would return
+    // for invalid credentials.
     await page.goto('/login')
     await page.locator('input[type="email"]').fill('invalid@email.com')
     await page.locator('input[type="password"]').fill('wrongpassword')

@@ -9,15 +9,19 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const configured = isSupabaseConfigured();
 
 export function createClient() {
-  if (!configured) {
-    // Return a no-op mock during builds before env vars are set.
-    // Auth operations will be no-ops until real credentials are provided.
+  // E2E mode always uses the mock, regardless of whether Supabase is configured.
+  // This ensures tests don't depend on network interception, which can be flaky in CI.
+  const isE2E = process.env.NEXT_PUBLIC_E2E_TESTING === 'true'
+  if (!configured || isE2E) {
+    const e2eMockError = { message: 'E-mail ou senha incorretos', status: 400 }
     return {
       auth: {
         getSession: async () => ({ data: { session: null }, error: null }),
         getUser: async () => ({ data: { user: null }, error: null }),
         signOut: async () => ({ error: null }),
-        signInWithPassword: async () => ({ data: { session: null, user: null }, error: null }),
+        signInWithPassword: isE2E
+          ? async () => ({ data: { session: null, user: null }, error: e2eMockError })
+          : async () => ({ data: { session: null, user: null }, error: null }),
         signUp: async () => ({ data: { session: null, user: null }, error: null }),
         onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       },

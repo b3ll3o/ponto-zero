@@ -19,6 +19,8 @@ describe('Supabase client factory', () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = originalKey;
+    // Explicitly clear E2E flag for unit tests — it only belongs in E2E test runs
+    process.env.NEXT_PUBLIC_E2E_TESTING = undefined;
     vi.resetModules();
   });
 

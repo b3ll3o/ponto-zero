@@ -182,9 +182,9 @@ export default function Home() {
                 Novo: Relatórios mensais automatizados
               </div>
               <h1 className="text-4xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl lg:text-6xl">
-                Controle de Jornada
+                Ponto Zero
                 <br />
-                <span className="text-emerald-500">Sem Complicação</span>
+                <span className="text-emerald-500">Controle de Jornada Sem Complicação</span>
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
                 O sistema de ponto eletrônico feito para quem valoriza simplicidade.
