@@ -3,7 +3,7 @@
  * Wraps Supabase RPC calls for monthly hours, overtime, and paginated entries
  */
 
-import { createClient } from './client';
+import { createClient } from './supabase/client';
 
 export interface DailyHours {
   date: string;
