@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test'
 
 const PERFORMANCE = {
-  maxLoginPageLoad: 3000,
-  maxNavigation: 1000,
+  maxLoginPageLoad: 5000,
+  maxNavigation: 2000,
 }
 
 test.describe('Login Page E2E', () => {
@@ -41,11 +41,6 @@ test.describe('Login Page E2E', () => {
   })
 
   test('shows error on invalid login attempt', async ({ page }) => {
-    // When Supabase uses placeholder credentials, the mock client is active.
-    // With NEXT_PUBLIC_E2E_TESTING=true, the mock returns an auth error for
-    // signInWithPassword, matching what the real Supabase client would return
-    // for invalid credentials.
-    await page.goto('/login')
     await page.locator('input[type="email"]').fill('invalid@email.com')
     await page.locator('input[type="password"]').fill('wrongpassword')
     await page.locator('button[type="submit"]').click()

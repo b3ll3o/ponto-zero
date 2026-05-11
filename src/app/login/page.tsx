@@ -13,7 +13,6 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [isResending, setIsResending] = useState(false);
-  const [resendSent, setResendSent] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -114,7 +113,6 @@ export default function LoginPage() {
     if (error) {
       setError('Erro ao reenviar e-mail. Tente novamente.');
     } else {
-      setResendSent(true);
       setSuccessMessage(`E-mail de confirmação reenviado para ${email}.`);
     }
     setIsResending(false);

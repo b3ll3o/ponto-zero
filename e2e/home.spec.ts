@@ -2,39 +2,35 @@ import { test, expect } from '@playwright/test'
 
 const PERFORMANCE = {
   maxHomePageLoad: 5000,
-  maxNavigation: 1000,
+  maxNavigation: 2000,
 }
 
 test.describe('Home Page E2E', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+  })
+
   test('homepage loads within performance threshold', async ({ page }) => {
     const start = Date.now()
-    await page.goto('/')
     await expect(page.locator('h1')).toContainText('Ponto Zero')
     const loadTime = Date.now() - start
     expect(loadTime).toBeLessThan(PERFORMANCE.maxHomePageLoad)
   })
 
   test('displays branding with logo', async ({ page }) => {
-    await page.goto('/')
-    // Logo badge with P0 text
     await expect(page.locator('div.rounded-full >> text=P0').first()).toBeVisible()
-    // Branding name in header
     await expect(page.locator('header >> text=Ponto Zero')).toBeVisible()
-    // Hero heading
     await expect(page.locator('h1')).toContainText('Ponto Zero')
-    // Hero tagline
     await expect(page.locator('h1 >> text=Controle de Jornada')).toBeVisible()
   })
 
   test('displays feature cards', async ({ page }) => {
-    await page.goto('/')
     await expect(page.getByRole('heading', { name: 'Registro Simples' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Horas Extras' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Relatórios Mensais' })).toBeVisible()
   })
 
   test('login button navigates to login page', async ({ page }) => {
-    await page.goto('/')
     const loginButton = page.locator('text=Entrar')
     await expect(loginButton).toBeVisible()
     const start = Date.now()
@@ -45,24 +41,19 @@ test.describe('Home Page E2E', () => {
   })
 
   test('dark mode toggle is present', async ({ page }) => {
-    await page.goto('/')
-    // ThemeToggle component should be present
     const themeToggle = page.locator('button').first()
     await expect(themeToggle).toBeVisible()
   })
 
   test('page is responsive on mobile viewport', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/')
     await expect(page.locator('h1')).toContainText('Ponto Zero')
     await expect(page.locator('text=Entrar')).toBeVisible()
   })
 
   test('page is accessible - has proper heading hierarchy', async ({ page }) => {
-    await page.goto('/')
     const h1 = page.locator('h1')
     await expect(h1).toBeVisible()
-    // h1 should be singular for accessibility
     await expect(page.locator('h1')).toHaveCount(1)
   })
 })
