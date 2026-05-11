@@ -63,6 +63,45 @@ const features = [
   },
 ];
 
+const b2bFeatures = [
+  {
+    title: "Gestão de Equipe",
+    description: "Convide funcionários e gerencie sua equipe de forma simples. Acompanhe quem está registrando ponto.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Métricas da Empresa",
+    description: "Visualize horas totais, funcionários ativos e produtividade da sua empresa em tempo real.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Isolamento de Dados",
+    description: "Cada empresa tem seus dados protegidos. Funcionários só veem suas próprias batidas.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Planos para Toda Empresa",
+    description: "Do grátis com 1 funcionário ao Empresarial ilimitado. Escolha conforme seu negócio.",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+      </svg>
+    ),
+  },
+];
+
 const steps = [
   { number: "1", title: "Cadastre-se", description: "Crie sua conta em 30 segundos" },
   { number: "2", title: "Registre", description: "Marque entrada e saída diariamente" },
@@ -144,6 +183,9 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
               Funcionalidades
+            </a>
+            <a href="#b2b" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
+              Para Empresas
             </a>
             <a href="#how-it-works" className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
               Como Funciona
@@ -246,6 +288,49 @@ export default function Home() {
           </div>
         </section>
 
+        {/* B2B Section */}
+        <section id="b2b" className="px-4 py-20 bg-emerald-500 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="text-center mb-16">
+              <span className="inline-block rounded-full bg-emerald-400/20 px-3 py-1 text-sm font-medium text-emerald-100 mb-4">
+                Para Empresas
+              </span>
+              <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Controle de ponto para sua empresa
+              </h2>
+              <p className="mt-4 text-lg text-emerald-100">
+                Gerencie sua equipe, acompanhe métricas e garanta conformidade com a legislação
+              </p>
+            </div>
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+              {b2bFeatures.map((feature) => (
+                <div key={feature.title} className="rounded-2xl bg-white/10 p-6 backdrop-blur-sm">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 text-white mb-4">
+                    {feature.icon}
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {feature.title}
+                  </h3>
+                  <p className="text-emerald-100">
+                    {feature.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-12 text-center">
+              <Link
+                href="/login?type=company"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-8 py-4 text-base font-semibold text-emerald-600 shadow-lg hover:bg-emerald-50 transition-colors"
+              >
+                Começar como Empresa
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* How It Works Section */}
         <section id="how-it-works" className="px-4 py-20 bg-white dark:bg-zinc-900/50 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
@@ -286,7 +371,7 @@ export default function Home() {
                 Planos e Preços
               </h2>
               <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-400">
-                Escolha o plano ideal para você
+                Para empresas de todos os tamanhos - começando grátis
               </p>
             </div>
             <div className="grid gap-8 lg:grid-cols-3 lg:gap-6">

@@ -1,17 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-import { isSupabaseConfigured } from '@/lib/supabase/config';
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
-
-  // Guard: skip Supabase auth if credentials are placeholder/missing.
-  // Allows builds to succeed before real env vars are set.
-  if (!isSupabaseConfigured()) {
-    return supabaseResponse;
-  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,19 +33,60 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthPage = request.nextUrl.pathname === '/login';
-  const isPublicPage = request.nextUrl.pathname === '/';
+  const pathname = request.nextUrl.pathname;
 
-  if (!user && !isAuthPage && !isPublicPage) {
+  if (!user && pathname !== '/login' && pathname !== '/' && !pathname.startsWith('/invite/')) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+  if (user) {
+    const { data: membership } = await supabase
+      .from('company_members')
+      .select('company_id, role')
+      .eq('user_id', user.id)
+      .single();
+
+    const isAuthPage = pathname === '/login' || pathname === '/';
+    const isInvitePage = pathname.startsWith('/invite/');
+
+    if (isAuthPage || isInvitePage) {
+      return supabaseResponse;
+    }
+
+    if (!membership) {
+      if (pathname !== '/onboarding/company') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/onboarding/company';
+        return NextResponse.redirect(url);
+      }
+      return supabaseResponse;
+    }
+
+    if (membership.role === 'admin') {
+      if (pathname === '/onboarding/company') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard/admin';
+        return NextResponse.redirect(url);
+      }
+      if (!pathname.startsWith('/dashboard/admin')) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard/admin';
+        return NextResponse.redirect(url);
+      }
+    } else if (membership.role === 'employee') {
+      if (pathname.startsWith('/dashboard/admin') || pathname === '/onboarding/company') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard/employee';
+        return NextResponse.redirect(url);
+      }
+      if (!pathname.startsWith('/dashboard/employee') && pathname !== '/dashboard') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/dashboard/employee';
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   return supabaseResponse;

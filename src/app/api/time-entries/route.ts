@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
-  
+
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -43,4 +43,52 @@ export async function GET(request: NextRequest) {
   };
 
   return NextResponse.json(result);
+}
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const { type, timestamp, notes } = body;
+
+  if (!type || !['start', 'end'].includes(type)) {
+    return NextResponse.json({ error: 'Invalid entry type' }, { status: 400 });
+  }
+
+  let companyId = null;
+  const { data: membership } = await supabase
+    .from('company_members')
+    .select('company_id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (membership) {
+    companyId = membership.company_id;
+  }
+
+  const entryTimestamp = timestamp || new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('time_entries')
+    .insert({
+      user_id: user.id,
+      type,
+      timestamp: entryTimestamp,
+      notes: notes || null,
+      company_id: companyId,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(data, { status: 201 });
 }
