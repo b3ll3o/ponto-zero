@@ -1,0 +1,84 @@
+{
+  "version": "1.0.0",
+  "project": "ponto-zero",
+  "mvp": {
+    "name": "mvp-multica",
+    "description": "Sistema de Controle de Jornada de Trabalho",
+    "path": "openspec/changes/mvp-multica"
+  },
+  "agents": {
+    "orchestrator": {
+      "path": "agents/orchestrator",
+      "role": "orchestrator",
+      "active": true,
+      "skill": "multica"
+    },
+    "frontend": {
+      "path": "agents/frontend",
+      "role": "frontend",
+      "active": true,
+      "skills": ["nextjs-16", "mobile-first", "a11y", "pwa"]
+    },
+    "backend": {
+      "path": "agents/backend",
+      "role": "backend",
+      "active": true,
+      "skills": ["supabase", "ddd", "typescript"]
+    },
+    "qa": {
+      "path": "agents/qa",
+      "role": "qa",
+      "active": true,
+      "skills": ["testing"]
+    }
+  },
+  "sdds": [
+    {
+      "name": "e2e-coverage",
+      "path": "specs/e2e-coverage",
+      "priority": "high",
+      "status": "done",
+      "skills": ["testing"]
+    },
+    {
+      "name": "relatorios-ui",
+      "path": "specs/relatorios-ui",
+      "priority": "high",
+      "status": "done",
+      "skills": ["nextjs-16", "mobile-first"]
+    },
+    {
+      "name": "validacao-business-rules",
+      "path": "specs/validacao-business-rules",
+      "priority": "high",
+      "status": "pending",
+      "skills": ["supabase", "typescript"]
+    },
+    {
+      "name": "historico-filtros",
+      "path": "specs/historico-filtros",
+      "priority": "medium",
+      "status": "pending",
+      "skills": ["nextjs-16"]
+    },
+    {
+      "name": "notificacoes-lembretes",
+      "path": "specs/notificacoes-lembretes",
+      "priority": "medium",
+      "status": "pending",
+      "skills": ["nextjs-16", "supabase"]
+    }
+  ],
+  "issues": {
+    "path": "issues",
+    "states": ["open", "in_progress", "review", "done", "blocked"]
+  },
+  "skills": {
+    "opencode": ".opencode/skills",
+    "system": "multica"
+  },
+  "quality": {
+    "minCoverage": 80,
+    "requiredChecks": ["build", "test", "lint"]
+  }
+}

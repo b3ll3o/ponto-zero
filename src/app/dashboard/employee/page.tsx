@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { AlertBanner } from '@/components/AlertBanner';
+import { hasOpenEntryFromYesterday, hasOpenEntry } from '@/lib/validations';
+import { NotificationProvider, useNotifications } from '@/contexts/NotificationContext';
+import { ToastContainer } from '@/components/notifications/ToastContainer';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
+import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -68,9 +74,10 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-export default function EmployeeDashboardPage() {
+function DashboardContent() {
   const { user, companyId, companyRole, isLoading: authLoading, signOut } = useAuth();
-  const [company, setCompany] = useState<Company | null>(null);
+  const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification } = useNotifications();
+  const handleRegisterRef = useRef<((type: 'start' | 'end') => Promise<void>) | null>(null);
   const [todayEntries, setTodayEntries] = useState<TimeEntry[]>([]);
   const [todayStart, setTodayStart] = useState<string | null>(null);
   const [todayEnd, setTodayEnd] = useState<string | null>(null);
@@ -81,6 +88,12 @@ export default function EmployeeDashboardPage() {
   const [allEntries, setAllEntries] = useState<PaginatedEntries | null>(null);
   const [entriesPage, setEntriesPage] = useState(1);
   const [entriesLoading, setEntriesLoading] = useState(false);
+  const [company, setCompany] = useState<Company | null>(null);
+
+  const [openEntryFromYesterday, setOpenEntryFromYesterday] = useState<{ hasOpen: boolean; lastEntryTimestamp?: string }>({ hasOpen: false });
+  const [dismissedYesterdayAlert, setDismissedYesterdayAlert] = useState(false);
+  const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  const [toasts, setToasts] = useState<Array<Omit<import('@/components/notifications/Toast').ToastProps, 'onDismiss'>>>([]);
   const router = useRouter();
   const supabase = createClient();
 
@@ -148,6 +161,12 @@ export default function EmployeeDashboardPage() {
     setEntriesLoading(false);
   }, [user]);
 
+  const checkOpenEntryFromYesterday = useCallback(async () => {
+    if (!user) return;
+    const result = await hasOpenEntryFromYesterday(user.id);
+    setOpenEntryFromYesterday(result);
+  }, [user]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -165,8 +184,77 @@ export default function EmployeeDashboardPage() {
       fetchTodayEntries();
       fetchMonthlySummary();
       fetchAllEntries(1);
+      checkOpenEntryFromYesterday();
     }
-  }, [authLoading, user, companyRole, router, fetchCompany, fetchTodayEntries, fetchMonthlySummary, fetchAllEntries]);
+  }, [authLoading, user, companyRole, router, fetchCompany, fetchTodayEntries, fetchMonthlySummary, fetchAllEntries, checkOpenEntryFromYesterday]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const checkOpenEntryReminder = async () => {
+      const hasOpen = await hasOpenEntry(user.id);
+      if (hasOpen) {
+        const lastEntry = todayEntries.find(e => e.type === 'start');
+        if (lastEntry) {
+          const hoursSinceEntry = (Date.now() - new Date(lastEntry.timestamp).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceEntry >= 4) {
+            addNotification({
+              type: 'warning',
+              title: 'Ponto aberto',
+              message: 'Você esqueceu de registrar saída?',
+              action: {
+                label: 'Registrar saída',
+                onClick: () => handleRegisterRef.current?.('end'),
+              },
+            });
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(checkOpenEntryReminder, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, todayEntries, addNotification]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const checkMissingEntryReminder = async () => {
+      const now = new Date();
+      const hour = now.getHours();
+      const reminderHours = [9, 11, 14, 16];
+
+      if (reminderHours.includes(hour) && todayEntries.length === 0) {
+        addNotification({
+          type: 'info',
+          title: 'Lembrete',
+          message: 'Você ainda não registrou seu ponto hoje.',
+        });
+      }
+    };
+
+    const interval = setInterval(checkMissingEntryReminder, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user, todayEntries.length, addNotification]);
+
+  useEffect(() => {
+    const syncToasts = () => {
+      const newToasts = notifications.slice(0, 3).map((n) => ({
+        id: n.id,
+        type: n.type,
+        message: n.message,
+        action: n.action ? { label: n.action.label, onClick: n.action.onClick } : undefined,
+        duration: n.type === 'success' ? 3000 : n.type === 'error' ? 5000 : 5000,
+      }));
+      setToasts(newToasts);
+    };
+    syncToasts();
+  }, [notifications.length]);
+
+  const handleDismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    removeNotification(id);
+  }, [removeNotification]);
 
   const handleRegister = async (type: 'start' | 'end') => {
     if (!user) return;
@@ -194,6 +282,10 @@ export default function EmployeeDashboardPage() {
     setIsRegistering(false);
   };
 
+  useEffect(() => {
+    handleRegisterRef.current = handleRegister;
+  });
+
   const handlePageChange = async (newPage: number) => {
     setEntriesPage(newPage);
     await fetchAllEntries(newPage);
@@ -210,6 +302,34 @@ export default function EmployeeDashboardPage() {
   };
 
   const isWorking = todayStart && !todayEnd;
+
+  const canRegisterEntry = !todayStart || !!todayEnd;
+  const canRegisterExit = !todayStart || !!todayEnd;
+
+  const handleRegisterYesterdayExit = async () => {
+    if (!user || !openEntryFromYesterday.lastEntryTimestamp) return;
+
+    setIsRegistering(true);
+
+    const yesterdayCloseTime = new Date(openEntryFromYesterday.lastEntryTimestamp);
+    yesterdayCloseTime.setHours(23, 59, 59, 0);
+
+    const { error } = await supabase.from('time_entries').insert({
+      user_id: user.id,
+      type: 'end',
+      timestamp: yesterdayCloseTime.toISOString(),
+    });
+
+    if (error) {
+      alert('Erro ao registrar saída. Tente novamente.');
+    } else {
+      setOpenEntryFromYesterday({ hasOpen: false });
+      setDismissedYesterdayAlert(true);
+      await fetchTodayEntries();
+      await fetchMonthlySummary();
+    }
+    setIsRegistering(false);
+  };
 
   if (authLoading || isLoading) {
     return (
@@ -230,31 +350,57 @@ export default function EmployeeDashboardPage() {
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <main className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="flex items-center justify-between px-4 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white text-sm font-bold">
-            P0
+    <>
+      <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
+      {showNotificationPanel && (
+        <NotificationPanel
+          notifications={notifications}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onClose={() => setShowNotificationPanel(false)}
+        />
+      )}
+      <main className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+        <header className="flex items-center justify-between px-4 py-4 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white text-sm font-bold">
+              P0
+            </div>
+            <div>
+              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                {company?.name || user.email}
+              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Funcionário
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-              {company?.name || user.email}
-            </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Funcionário
-            </p>
+          <div className="flex items-center gap-3">
+            <NotificationBell
+              unreadCount={unreadCount}
+              onClick={() => setShowNotificationPanel(true)}
+            />
+            <ThemeToggle />
+            <button
+              onClick={signOut}
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            >
+              Sair
+            </button>
           </div>
+        </header>
+
+        {openEntryFromYesterday.hasOpen && !dismissedYesterdayAlert && (
+          <div className="px-4 pt-4">
+            <AlertBanner
+              message="Você esqueceu de registrar saída ontem"
+              type="warning"
+              onAction={handleRegisterYesterdayExit}
+              actionLabel="Registrar saída"
+              onDismiss={() => setDismissedYesterdayAlert(true)}
+          />
         </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <button
-            onClick={signOut}
-            className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
+      )}
 
       <div className="flex-1 px-4 py-6 space-y-6 max-w-lg mx-auto w-full">
         <div className="text-center space-y-1">
@@ -379,7 +525,7 @@ export default function EmployeeDashboardPage() {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleRegister('start')}
-              disabled={isRegistering || !!todayStart}
+              disabled={isRegistering || !canRegisterEntry}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 bg-emerald-50 py-5 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-500 dark:hover:bg-emerald-900/40 transition-all active:scale-95"
             >
               <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -390,7 +536,7 @@ export default function EmployeeDashboardPage() {
 
             <button
               onClick={() => handleRegister('end')}
-              disabled={isRegistering || !todayStart || !!todayEnd}
+              disabled={isRegistering || !canRegisterExit}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-red-500 bg-red-50 py-5 text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-900/20 dark:text-red-400 dark:border-red-500 dark:hover:bg-red-900/40 transition-all active:scale-95"
             >
               <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -510,5 +656,14 @@ export default function EmployeeDashboardPage() {
         </div>
       </nav>
     </main>
+    </>
+  );
+}
+
+export default function EmployeeDashboardPage() {
+  return (
+    <NotificationProvider>
+      <DashboardContent />
+    </NotificationProvider>
   );
 }

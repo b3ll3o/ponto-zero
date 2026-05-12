@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { AlertBanner } from '@/components/AlertBanner';
+import { hasOpenEntryFromYesterday } from '@/lib/validations';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -85,6 +87,9 @@ export default function DashboardPage() {
   const [allEntries, setAllEntries] = useState<PaginatedEntries | null>(null);
   const [entriesPage, setEntriesPage] = useState(1);
   const [entriesLoading, setEntriesLoading] = useState(false);
+
+  const [openEntryFromYesterday, setOpenEntryFromYesterday] = useState<{ hasOpen: boolean; lastEntryTimestamp?: string }>({ hasOpen: false });
+  const [dismissedYesterdayAlert, setDismissedYesterdayAlert] = useState(false);
   
   const supabase = createClient();
   const router = useRouter();
@@ -140,7 +145,7 @@ export default function DashboardPage() {
   const fetchAllEntries = useCallback(async (page: number) => {
     if (!user) return;
     setEntriesLoading(true);
-    
+
     try {
       const response = await fetch(`/api/time-entries?page=${page}&pageSize=10`);
       if (response.ok) {
@@ -153,16 +158,24 @@ export default function DashboardPage() {
     setEntriesLoading(false);
   }, [user]);
 
+  const checkOpenEntryFromYesterday = useCallback(async () => {
+    if (!user) return;
+    const result = await hasOpenEntryFromYesterday(user.id);
+    setOpenEntryFromYesterday(result);
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchTodayEntries();
-       
+
       fetchMonthlySummary();
-       
+
       fetchAllEntries(1);
+
+      checkOpenEntryFromYesterday();
     }
-  }, [user, fetchTodayEntries, fetchMonthlySummary, fetchAllEntries]);
+  }, [user, fetchTodayEntries, fetchMonthlySummary, fetchAllEntries, checkOpenEntryFromYesterday]);
 
   const handleRegister = async (type: 'start' | 'end') => {
     if (!user) return;
@@ -207,6 +220,34 @@ export default function DashboardPage() {
 
   const isWorking = todayStart && !todayEnd;
 
+  const canRegisterEntry = !todayStart || !!todayEnd;
+  const canRegisterExit = !todayStart || !!todayEnd;
+
+  const handleRegisterYesterdayExit = async () => {
+    if (!user || !openEntryFromYesterday.lastEntryTimestamp) return;
+
+    setIsRegistering(true);
+
+    const yesterdayCloseTime = new Date(openEntryFromYesterday.lastEntryTimestamp);
+    yesterdayCloseTime.setHours(23, 59, 59, 0);
+
+    const { error } = await supabase.from('time_entries').insert({
+      user_id: user.id,
+      type: 'end',
+      timestamp: yesterdayCloseTime.toISOString(),
+    });
+
+    if (error) {
+      alert('Erro ao registrar saída. Tente novamente.');
+    } else {
+      setOpenEntryFromYesterday({ hasOpen: false });
+      setDismissedYesterdayAlert(true);
+      await fetchTodayEntries();
+      await fetchMonthlySummary();
+    }
+    setIsRegistering(false);
+  };
+
   if (authLoading || isLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
@@ -248,6 +289,18 @@ export default function DashboardPage() {
           </button>
         </div>
       </header>
+
+      {openEntryFromYesterday.hasOpen && !dismissedYesterdayAlert && (
+        <div className="px-4 pt-4">
+          <AlertBanner
+            message="Você esqueceu de registrar saída ontem"
+            type="warning"
+            onAction={handleRegisterYesterdayExit}
+            actionLabel="Registrar saída"
+            onDismiss={() => setDismissedYesterdayAlert(true)}
+          />
+        </div>
+      )}
 
       <div className="flex-1 px-4 py-6 space-y-6 max-w-lg mx-auto w-full">
         <div className="text-center space-y-1">
@@ -375,7 +428,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleRegister('start')}
-              disabled={isRegistering || !!todayStart}
+              disabled={isRegistering || !canRegisterEntry}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-emerald-500 bg-emerald-50 py-5 text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-500 dark:hover:bg-emerald-900/40 transition-all active:scale-95"
             >
               <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -386,7 +439,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => handleRegister('end')}
-              disabled={isRegistering || !todayStart || !!todayEnd}
+              disabled={isRegistering || !canRegisterExit}
               className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-red-500 bg-red-50 py-5 text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-900/20 dark:text-red-400 dark:border-red-500 dark:hover:bg-red-900/40 transition-all active:scale-95"
             >
               <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -500,7 +553,13 @@ export default function DashboardPage() {
             </svg>
             <span className="text-xs">Home</span>
           </Link>
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-zinc-400 dark:text-zinc-600">
+          <Link href="/dashboard/history" className="flex flex-col items-center gap-1 text-zinc-400 dark:text-zinc-600">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs">Histórico</span>
+          </Link>
+          <Link href="/dashboard/reports" className="flex flex-col items-center gap-1 text-zinc-400 dark:text-zinc-600">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
