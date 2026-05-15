@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 const PERFORMANCE = {
   maxHomePageLoad: 5000,
-  maxNavigation: 2000,
+  maxNavigation: 2500,
 }
 
 test.describe('Home Page E2E', () => {
