@@ -1,4 +1,4 @@
--- Migration 005: Time Entries Company Association
+-- Migration 006: Time Entries Company Association
 -- Add company_id to time_entries and update RLS for B2B filtering
 
 -- Add company_id column to time_entries (nullable for existing entries)
@@ -7,6 +7,9 @@ ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET 
 
 -- Create index for company filtering
 CREATE INDEX IF NOT EXISTS idx_time_entries_company_id ON time_entries(company_id);
+
+-- Composite index for company + time range queries (e.g. company reports)
+CREATE INDEX IF NOT EXISTS idx_time_entries_company_timestamp ON time_entries(company_id, timestamp);
 
 -- Create function to automatically set company_id when inserting time entries
 CREATE OR REPLACE FUNCTION set_time_entry_company()
@@ -47,14 +50,9 @@ DROP POLICY IF EXISTS "Users can insert own entries" ON time_entries;
 DROP POLICY IF EXISTS "Users can update own entries" ON time_entries;
 DROP POLICY IF EXISTS "Users can delete own entries" ON time_entries;
 
--- New Policy: Users can view their own entries OR entries from their company
+-- New Policy: Users can only view their own entries (employees see only theirs; admins see all via RPC)
 CREATE POLICY "Users can view own entries" ON time_entries
-  FOR SELECT USING (
-    auth.uid() = user_id
-    OR company_id IN (
-      SELECT company_id FROM company_members WHERE user_id = auth.uid()
-    )
-  );
+  FOR SELECT USING (auth.uid() = user_id);
 
 -- New Policy: Users can insert their own entries
 CREATE POLICY "Users can insert own entries" ON time_entries

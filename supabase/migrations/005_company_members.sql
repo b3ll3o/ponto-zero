@@ -1,4 +1,4 @@
--- Migration 004: Company Members Table
+-- Migration 005: Company Members Table
 -- Create company_members table for B2B membership management
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

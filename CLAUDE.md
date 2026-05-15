@@ -21,99 +21,212 @@
 
 ---
 
+## Architecture
+
+### Request Lifecycle
+
+```
+Browser → proxy.ts (middleware) → Next.js Route
+                                ↓
+                        AuthContext (client state)
+                                ↓
+                        Supabase (auth + DB + RLS)
+```
+
+### Middleware (proxy.ts)
+
+Roteamento baseado em estado de autenticação e papel do usuário:
+
+| Condição | Redirect |
+|----------|----------|
+| Sem sessão | → `/login` |
+| Com sessão + sem company | → `/onboarding/company` |
+| Com sessão + admin | → `/dashboard/admin/*` |
+| Com sessão + employee | → `/dashboard/employee` |
+
+---
+
 ## Directory Structure
 
 ```
 src/
-├── app/                           # Next.js App Router
-│   ├── login/
-│   │   ├── page.tsx              # Login page
-│   │   └── login.test.tsx        # Login tests
+├── proxy.ts                         # Middleware (route protection + role routing)
+├── app/
+│   ├── page.tsx                    # Landing page (marketing)
+│   ├── login/page.tsx              # Login + Signup (同一页面)
+│   ├── auth/confirm/page.tsx        # Supabase email confirmation callback
+│   ├── onboarding/company/page.tsx  # Company creation (first-run wizard)
+│   ├── invite/[token]/page.tsx     # Invite acceptance flow
 │   ├── dashboard/
-│   │   └── page.tsx              # Main dashboard (mobile-first)
-│   ├── auth/confirm/page.tsx     # Supabase auth callback
-│   ├── api/
-│   │   ├── time-entries/route.ts # GET/POST time entries
+│   │   ├── page.tsx                # Dashboard redirect (根据role)
+│   │   ├── employee/page.tsx       # Employee dashboard (ponto + resumo)
+│   │   ├── admin/page.tsx          # Admin dashboard (equipe + métricas)
+│   │   ├── history/page.tsx        # Employee history (todas batidas)
 │   │   └── reports/
-│   │       ├── monthly/route.ts  # Monthly summary
-│   │       ├── weekly/route.ts   # Weekly summary
-│   │       └── overtime/route.ts  # Overtime report
-│   ├── layout.tsx               # Root layout
-│   └── page.tsx                 # Landing page (redirects to dashboard)
+│   │       ├── page.tsx            # Reports redirect
+│   │       ├── weekly/page.tsx     # Weekly report
+│   │       └── overtime/page.tsx   # Overtime report
+│   └── api/
+│       ├── time-entries/route.ts   # GET(list) / POST(create)
+│       ├── companies/route.ts      # GET / POST (create company)
+│       ├── companies/[id]/invite/route.ts    # POST (generate invite)
+│       ├── companies/[id]/members/route.ts  # GET (list members)
+│       ├── invite/[token]/route.ts           # GET (validate invite)
+│       ├── invite/[token]/accept/route.ts    # POST (accept invite)
+│       └── reports/
+│           ├── monthly/route.ts    # Personal monthly summary
+│           ├── weekly/route.ts     # Personal weekly report
+│           ├── overtime/route.ts   # Personal overtime report
+│           └── company/route.ts    # Admin: company-wide metrics
 ├── components/
-│   └── ThemeToggle.tsx           # Dark/light mode toggle
+│   ├── ThemeToggle.tsx
+│   ├── AlertBanner.tsx
+│   ├── CompanyInviteForm.tsx
+│   ├── history/                     # History page components
+│   ├── notifications/               # Toast + notification system
+│   └── reports/                    # Report card + skeleton components
 ├── contexts/
-│   └── AuthContext.tsx           # Auth state management (@supabase/ssr)
-├── lib/
-│   ├── supabase/
-│   │   ├── client.ts            # Browser client (createClient)
-│   │   ├── server.ts            # Server components client
-│   │   ├── config.ts            # Supabase config helpers
-│   │   └── config.test.ts
-│   ├── timeTracking.ts           # Time tracking business logic
-│   └── timeTracking.test.ts
-└── middleware.ts                  # Route protection
+│   ├── AuthContext.tsx              # Auth state + membership + role
+│   └── NotificationContext.tsx      # Toast/notification state
+└── lib/
+    ├── supabase/
+    │   ├── client.ts               # Browser client
+    │   ├── server.ts               # Server-side client
+    │   └── config.ts               # URL/key helpers
+    ├── timeTracking.ts              # Business logic (calculate hours, etc.)
+    └── validations.ts               # Validation helpers
 
 supabase/migrations/
-├── 001_initial_schema.sql        # Tables + RLS policies
-├── 002_api_functions.sql         # Database functions
-└── 002_monthly_hours_overtime.sql # Monthly hours calculation
+├── 001_initial_schema.sql           # time_entries table + RLS
+├── 002_api_functions.sql           # DB functions (calculate_daily_hours, etc.)
+├── 002_monthly_hours_overtime.sql  # Monthly hours + overtime calculation
+├── 003_companies.sql               # companies table
+├── 004_company_members.sql          # company_members table
+├── 005_time_entries_company.sql    # company_id FK on time_entries
+└── 006_company_invites.sql         # company_invites table
 ```
+
+---
+
+## Flows
+
+### 1. Authentication Flow
+
+```
+Landing (/page.tsx)
+  └── /login
+        ├── Sign In (email + password) → Supabase Auth
+        │     └── redirect → /dashboard (middleware roles)
+        ├── Sign Up (email + password) → Supabase Auth
+        │     └── email confirmation → /auth/confirm → redirect
+        └── Esqueci senha → Supabase Auth reset
+```
+
+### 2. Onboarding Flow (Primeiro Acesso)
+
+```
+Nova conta + sem company membership
+  → redirect para /onboarding/company
+        └── Preenche dados da empresa (nome, CNPJ, plano)
+              └── POST /api/companies
+                    └── Cria company + membership (admin)
+                          └── redirect → /dashboard/admin
+```
+
+### 3. Invite Flow (Admin Convida Funcionário)
+
+```
+Admin (/dashboard/admin)
+  └── Clica "Convidar" → POST /api/companies/[id]/invite
+        └── Gera invite token (UUID, expira em 7 dias)
+              └── Exibe link: /invite/[token]
+
+Funcionário acessa /invite/[token]
+  └── GET /api/invite/[token] → valida token
+        └── POST /api/invite/[token]/accept
+              └── Insere company_members (role: employee)
+                    └── redirect → /dashboard/employee
+```
+
+### 4. Time Entry Flow (Registro de Ponto)
+
+```
+Employee (/dashboard/employee)
+  └── Clica "Registrar Entrada"
+        └── POST /api/time-entries { type: 'start' }
+              └── Supabase INSERT (RLS: user_id = auth.uid)
+  └── Clica "Registrar Saída"
+        └── POST /api/time-entries { type: 'end' }
+              └── INSERT (RLS: user_id = auth.uid)
+  └── GET /api/reports/monthly
+        └── Calcula total horas + extras do mês
+```
+
+### 5. Admin Team Management Flow
+
+```
+Admin (/dashboard/admin)
+  ├── Métricas da empresa (GET /api/reports/company)
+  │     └── total_members, active_today, total_hours_month
+  ├── Lista membros (GET /api/companies/[id]/members)
+  └── Convida funcionário (POST /api/companies/[id]/invite)
+```
+
+### 6. Reports Flow
+
+| Endpoint | Quem | Retorno |
+|----------|------|---------|
+| `GET /api/reports/monthly` | Employee | Horas totais, dias úteis, extras do mês |
+| `GET /api/reports/weekly` | Employee | Resumo semanal |
+| `GET /api/reports/overtime` | Employee | Banco de horas detalhado |
+| `GET /api/reports/company` | Admin | Métricas agregadas da empresa |
+
+---
+
+## Database Schema
+
+### Tabelas Principais
+
+**`companies`** — empresas criadas na plataforma
+**`company_members`** — relação usuário ↔ empresa com papel (admin/employee)
+**`company_invites`** — convites pendentes (token, email, expiry)
+**`time_entries`** — batidas de ponto (user_id, type, timestamp)
+
+### RLS Policies
+
+Todos os acessos ao banco passam por RLS:
+
+| Tabela | Policy | Condição |
+|--------|--------|----------|
+| `companies` | admin read/write | `admin_user_id = auth.uid()` |
+| `company_members` | member read | `user_id = auth.uid()` |
+| `company_invites` | read by token | `token = params` |
+| `time_entries` | CRUD próprio | `user_id = auth.uid()` |
 
 ---
 
 ## Key Implementation Details
 
-### Authentication Flow
+### AuthContext State
 
-1. User visits `/login`
-2. `AuthContext` uses `@supabase/ssr` to manage session
-3. `middleware.ts` protects routes: redirects unauthenticated users to `/login`
-4. On login success, redirects to `/dashboard`
-5. Logout calls `supabase.auth.signOut()` and redirects to `/login`
-
-**AuthContext** (`src/contexts/AuthContext.tsx`):
 ```typescript
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
+  companyRole: 'admin' | 'employee' | null;
+  companyId: string | null;
   signOut: () => Promise<void>;
+  refreshMembership: () => Promise<void>;
 }
 ```
 
-### Database Schema
-
-**Table: `time_entries`**
-
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | uuid | PK, default uuid_generate_v4() |
-| user_id | uuid | FK → auth.users, NOT NULL |
-| type | text | CHECK IN ('start', 'end') |
-| timestamp | timestamptz | NOT NULL, DEFAULT NOW() |
-| notes | text | nullable |
-| created_at | timestamptz | DEFAULT NOW() |
-
-**Indexes**: `idx_time_entries_user_id`, `idx_time_entries_timestamp`, `idx_time_entries_user_timestamp`
-
-**RLS Policies**: Users can only CRUD their own entries (auth.uid() = user_id)
-
-### Dashboard Features
-
-1. **Resumo Mensal** - Total hours, work days, regular vs overtime
-2. **Status do Dia** - Working/not working indicator
-3. **Horas Hoje** - Real-time worked hours calculation
-4. **Registrar Ponto** - Entry/exit buttons (disabled when inappropriate)
-5. **Batidas de Hoje** - Today's entries list
-6. **Todas as Batidas** - Paginated historical entries
-
 ### Theme System
 
-- Uses `next-themes` for dark/light mode
-- `ThemeToggle` component in header
-- Theme persisted in localStorage
-- Tailwind CSS 4 with CSS variables for theming
+- `next-themes` para dark/light mode
+- `ThemeToggle` component no header
+- Persistido em localStorage
+- CSS variables via Tailwind 4
 
 ---
 
@@ -149,74 +262,36 @@ NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
 ```
 
-Copy `.env.local.example` to `.env.local` for local development.
-
----
-
-## OpenSpec Methodology
-
-Project uses OpenSpec for change specification:
-
-```
-openspec/changes/sistema-controle-jornada/
-├── proposal.md           # Intent, scope, risks
-├── design.md            # Architecture decisions
-└── specs/
-    ├── auth/spec.md     # Auth specification
-    ├── time-tracking/spec.md
-    └── dashboard/spec.md
-```
-
 ---
 
 ## Common Tasks
 
-### Run Development Server
 ```bash
-npm run dev
-```
-
-### Run Tests
-```bash
+npm run dev          # Dev server
+npm run build        # Production build
+npm run lint         # ESLint
 npm run test         # Unit + Integration (coverage)
 npm run test:run     # Unit + Integration (CI mode)
 npm run test:e2e     # E2E with Playwright
 npm run test:ui      # Vitest UI
 ```
 
-### Build for Production
-```bash
-npm run build && npm run start
-```
-
-### Lint
-```bash
-npm run lint
-```
-
----
-
-## Important Notes
-
-1. **Next.js 16**: This is NOT the Next.js you know. APIs and conventions may differ from training data. Read `node_modules/next/dist/docs/` for current documentation.
-
-2. **RLS is critical**: Supabase RLS policies ensure users only access their own data. Never disable RLS in production.
-
-3. **Auth session handling**: Always use `@supabase/ssr` for proper SSR auth. Never create Supabase clients directly.
-
-4. **Mobile-first**: UI is designed for 320px+ screens. Dashboard uses mobile-optimized layout with bottom navigation.
-
 ---
 
 ## Current State
 
-- ✅ Authentication (login/logout/session)
-- ✅ Time entry registration (start/end)
-- ✅ Dashboard with daily summary
-- ✅ Monthly summary with overtime calculation
+- ✅ Landing page (marketing)
+- ✅ Login + Signup (Supabase Auth)
+- ✅ Email confirmation callback
+- ✅ Onboarding (criar empresa)
+- ✅ Invite flow (admin gera link, employee aceita)
+- ✅ Employee dashboard (registrar ponto + resumo mensal)
+- ✅ Employee history (todas batidas com paginação)
+- ✅ Admin dashboard (métricas + equipe)
+- ✅ Reports (monthly, weekly, overtime, company)
 - ✅ Dark/light theme toggle
 - ✅ Protected routes via middleware
 - ✅ Paginated time entries list
-- ✅ Basic unit tests
-- 🔲 Complete e2e test coverage
-- 🔲 Reports (weekly, overtime) - endpoints exist but UI not complete
+- ✅ Toast notifications
+- ✅ Unit tests (184 tests passing)
+- ✅ E2E tests (Playwright)

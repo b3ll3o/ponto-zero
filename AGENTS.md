@@ -65,7 +65,14 @@ npm run test:ui     # UI interativa Vitest
 
 ### RLS (Row Level Security)
 
-O banco Supabase utiliza RLS para segurança. Usuários só acessam seus próprios dados.
+O banco Supabase utiliza RLS para segurança multi-tenant:
+
+- `time_entries`: usuário só acessa suas próprias batidas
+- `companies`: admin só acessa sua própria empresa
+- `company_members`: usuário só vê seus próprios memberships
+- `company_invites`: acesso por token (sem RLS do auth)
+
+Empresa é isolada via `company_id` em `company_members` e `company_invites`.
 
 ---
 
@@ -79,10 +86,9 @@ O projeto segue a metodologia OpenSpec para especificação:
 
 ### SDDs Ativos
 
-| SDD | Path | Prioridade |
-|-----|------|------------|
-| sistema-controle-jornada | `openspec/changes/sistema-controle-jornada/` | 🔲 Em progresso |
-| mvp-multica | `openspec/changes/mvp-multica/` | 🔲 Setup |
+> Nenhum SDD ativo no momento. O projeto `mvp-multica` foi concluído.
+
+> Os SDDs `auth-basica`, `dashboard-horas`, `database-schema`, `registro-ponto`, `sistema-controle-jornada` e `archive` foram removidos.
 
 ---
 

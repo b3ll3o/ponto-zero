@@ -1,4 +1,4 @@
--- Migration 003: Companies Table
+-- Migration 004: Companies Table
 -- Create companies table for B2B system
 
 -- Enable UUID extension (should already be enabled, but确保)

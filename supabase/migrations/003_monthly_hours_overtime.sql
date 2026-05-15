@@ -1,4 +1,4 @@
--- Migration 002: Monthly hours summary, overtime tracking, and paginated entries
+-- Migration 003: Monthly hours summary, overtime tracking, and paginated entries
 -- Run this in Supabase SQL Editor after 001_initial_schema.sql
 
 -- ============================================================

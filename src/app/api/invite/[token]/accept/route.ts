@@ -39,6 +39,16 @@ export async function POST(
     return NextResponse.json({ error: 'Invite expired' }, { status: 400 });
   }
 
+  // Security: validate that the invite was sent to this user's email
+  const userEmail = user.email?.toLowerCase();
+  const inviteEmail = invite.email?.toLowerCase();
+  if (inviteEmail && userEmail && userEmail !== inviteEmail) {
+    return NextResponse.json(
+      { error: 'This invite was sent to a different email address' },
+      { status: 403 }
+    );
+  }
+
   const { data: existingMember } = await supabase
     .from('company_members')
     .select('id')

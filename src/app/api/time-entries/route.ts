@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { validateTimestamp, canRegisterEntry, canRegisterExit, VALIDATION_ERRORS } from '@/lib/validations';
+import { validateTimestamp, canRegisterEntryServer, canRegisterExitServer, VALIDATION_ERRORS } from '@/lib/validations.server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 type FilterPeriod = 'today' | 'week' | 'month' | 'custom';
 
@@ -18,7 +19,8 @@ function calculateDateRange(period: FilterPeriod, params: URLSearchParams): { st
       start = new Date(now);
       start.setDate(now.getDate() - dayOfWeek);
       start.setHours(0, 0, 0, 0);
-      end = new Date();
+      end = new Date(now);
+      end.setHours(23, 59, 59, 999);
       break;
     case 'month':
       start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
@@ -140,6 +142,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const rateLimit = checkRateLimit(user.id);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(rateLimit.retryAfter) },
+      }
+    );
+  }
+
   const body = await request.json();
   const { type, timestamp, notes } = body;
 
@@ -159,7 +172,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (type === 'start') {
-    const entryCheck = await canRegisterEntry(user.id);
+    const entryCheck = await canRegisterEntryServer(user.id);
     if (!entryCheck.valid) {
       const errorInfo = VALIDATION_ERRORS[entryCheck.code!];
       return NextResponse.json(
@@ -170,7 +183,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (type === 'end') {
-    const exitCheck = await canRegisterExit(user.id);
+    const exitCheck = await canRegisterExitServer(user.id);
     if (!exitCheck.valid) {
       const errorInfo = VALIDATION_ERRORS[exitCheck.code!];
       return NextResponse.json(

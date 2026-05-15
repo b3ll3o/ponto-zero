@@ -90,5 +90,23 @@ describe('Supabase client factory', () => {
       const subscription = client.auth.onAuthStateChange(() => {});
       expect(typeof subscription.data.subscription.unsubscribe).toBe('function');
     });
+
+    it('signInWithPassword returns error in E2E mode', async () => {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://placeholder.supabase.co';
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'placeholder_anon_key';
+      process.env.NEXT_PUBLIC_E2E_TESTING = 'true';
+
+      const { createClient } = await import('./client');
+      const client = createClient();
+
+      const result = await client.auth.signInWithPassword({
+        email: 'test@example.com',
+        password: 'password123',
+      });
+
+      expect(result.data.session).toBeNull();
+      expect(result.error).not.toBeNull();
+      expect(result.error?.message).toBe('E-mail ou senha incorretos');
+    });
   });
 });

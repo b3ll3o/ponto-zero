@@ -49,8 +49,8 @@ describe('SkeletonCard', () => {
     it('applies dark mode classes to compact variant pulse elements', () => {
       const { container } = render(<SkeletonCard variant="compact" />);
       const skeleton = container.firstChild;
-      const pulseDivs = skeleton?.querySelectorAll('.animate-pulse');
-      pulseDivs?.forEach((div) => {
+      const pulseDivs = (skeleton as Element)?.querySelectorAll('.animate-pulse');
+      pulseDivs?.forEach((div: Element) => {
         expect(div).toHaveClass('dark:bg-zinc-800');
       });
     });
@@ -72,7 +72,7 @@ describe('SkeletonCard', () => {
     it('has animate-pulse class on compact variant', () => {
       const { container } = render(<SkeletonCard variant="compact" />);
       const skeleton = container.firstChild;
-      const pulseDivs = skeleton?.querySelectorAll('.animate-pulse');
+      const pulseDivs = (skeleton as Element)?.querySelectorAll('.animate-pulse');
       expect(pulseDivs?.length).toBeGreaterThan(0);
     });
   });

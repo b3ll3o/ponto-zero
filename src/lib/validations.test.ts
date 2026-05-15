@@ -4,6 +4,7 @@ import {
   canRegisterEntry,
   canRegisterExit,
   hasOpenEntry,
+  hasOpenEntryFromYesterday,
   VALIDATION_ERRORS,
 } from './validations';
 
@@ -147,5 +148,38 @@ describe('validations — canRegisterExit', () => {
     const result = await canRegisterExit('user-1');
     expect(result.valid).toBe(false);
     expect(result.code).toBe('NO_ENTRY_TODAY');
+  });
+});
+
+describe('validations — hasOpenEntryFromYesterday', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns hasOpen true when yesterday has start without end', async () => {
+    mockFrom
+      .mockReturnValueOnce(createQueryBuilderMock([{ timestamp: '2026-05-14T09:00:00Z' }]))
+      .mockReturnValueOnce(createQueryBuilderMock([]));
+
+    const result = await hasOpenEntryFromYesterday('user-1');
+    expect(result.hasOpen).toBe(true);
+    expect(result.lastEntryTimestamp).toBe('2026-05-14T09:00:00Z');
+  });
+
+  it('returns hasOpen false when yesterday has start and end', async () => {
+    mockFrom
+      .mockReturnValueOnce(createQueryBuilderMock([{ timestamp: '2026-05-14T09:00:00Z' }]))
+      .mockReturnValueOnce(createQueryBuilderMock([{ id: '2' }]));
+
+    const result = await hasOpenEntryFromYesterday('user-1');
+    expect(result.hasOpen).toBe(false);
+  });
+
+  it('returns hasOpen false when no yesterday entry exists', async () => {
+    mockFrom.mockReturnValueOnce(createQueryBuilderMock([]));
+
+    const result = await hasOpenEntryFromYesterday('user-1');
+    expect(result.hasOpen).toBe(false);
+    expect(result.lastEntryTimestamp).toBeUndefined();
   });
 });

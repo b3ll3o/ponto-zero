@@ -1,4 +1,4 @@
--- Migration 006: Company Invites Table
+-- Migration 007: Company Invites Table
 -- Create company_invites table for invite link flow
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

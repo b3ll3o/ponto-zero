@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -73,6 +73,8 @@ function formatMinutes(minutes: number): string {
   const mins = minutes % 60;
   return `${hours}h ${mins}m`;
 }
+
+const REMINDER_TIMEOUT_MS = Number(process.env.NEXT_PUBLIC_REMINDER_TIMEOUT_MS) || (4 * 60 * 60 * 1000);
 
 function DashboardContent() {
   const { user, companyId, companyRole, isLoading: authLoading, signOut } = useAuth();
@@ -196,8 +198,8 @@ function DashboardContent() {
       if (hasOpen) {
         const lastEntry = todayEntries.find(e => e.type === 'start');
         if (lastEntry) {
-          const hoursSinceEntry = (Date.now() - new Date(lastEntry.timestamp).getTime()) / (1000 * 60 * 60);
-          if (hoursSinceEntry >= 4) {
+          const timeSinceEntry = Date.now() - new Date(lastEntry.timestamp).getTime();
+          if (timeSinceEntry >= REMINDER_TIMEOUT_MS) {
             addNotification({
               type: 'warning',
               title: 'Ponto aberto',
@@ -249,7 +251,7 @@ function DashboardContent() {
       setToasts(newToasts);
     };
     syncToasts();
-  }, [notifications.length]);
+  }, [notifications]);
 
   const handleDismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
